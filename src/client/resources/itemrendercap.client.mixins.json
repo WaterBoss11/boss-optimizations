@@ -3,7 +3,8 @@
 	"package": "dev.itemrendercap.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"EntityRenderDispatcherMixin"
+		"EntityRenderDispatcherMixin",
+		"LevelExtractorMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

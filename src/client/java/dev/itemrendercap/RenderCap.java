@@ -1,56 +1,56 @@
 package dev.itemrendercap;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Optional;
 
 /**
- * Decides which item entities are allowed to be drawn.
+ * Adapter between Minecraft's render pipeline and {@link ItemGroupSelector}.
  *
- * <p>Item entities are bucketed into a uniform grid whose cell size is the configured group
- * radius. Within each cell only the lowest N entity IDs survive. Entity ID is used as the
- * tie-break rather than distance-to-camera precisely because it does not change as the player
- * moves, so the surviving set is stable and the pile does not shimmer.
- *
- * <p>The set is rebuilt at most once every {@value #REBUILD_INTERVAL_MS} ms (one tick) and is
- * held constant in between, so every entity in a given frame sees a consistent answer.
+ * <p>The selection set is rebuilt exactly once per frame, driven by {@link #beginFrame()} on
+ * {@code LevelExtractor.extract}. It is <em>not</em> rebuilt on a timer: a timer expiring
+ * partway through an extraction pass would swap the answer set mid-frame, so items checked
+ * before the swap and items checked after it would be judged against different sets. That
+ * produces exactly the "items sometimes don't render even though they should be in a rendered
+ * group" symptom, and it is why the previous time-based version was wrong.
  *
  * <p>This only ever answers "draw or don't draw". Nothing here touches entity state, ticking,
- * pickup or despawning - the entities are all still there, they are just not submitted to the
- * renderer.
+ * pickup or despawning.
  */
 public final class RenderCap {
-	private static final long REBUILD_INTERVAL_MS = 50L;
-	private static final long REBUILD_INTERVAL_NS = REBUILD_INTERVAL_MS * 1_000_000L;
-
 	/** How far along the crosshair ray we look for an item entity to exempt. */
 	private static final double LOOK_RANGE = 32.0D;
 
 	/** Dropped items have a tiny hitbox; widen it a little so aiming at one is not fiddly. */
 	private static final double LOOK_TOLERANCE = 0.25D;
 
-	private static final IntOpenHashSet VISIBLE = new IntOpenHashSet();
-	private static final Long2ObjectOpenHashMap<IntArrayList> BUCKETS = new Long2ObjectOpenHashMap<>();
+	private static final ItemGroupSelector SELECTOR = new ItemGroupSelector();
 
 	private static ClientLevel lastLevel;
-	private static long lastRebuildNs;
-	private static boolean built;
+	private static boolean frameDirty = true;
+	private static boolean announced;
+	private static long frameCounter;
 
 	private RenderCap() {
 	}
 
 	/**
-	 * @return false only for item entities that the cap is currently hiding.
+	 * Called at the head of every frame's extraction pass. Marks the selection set stale so it
+	 * is rebuilt once, on the first item entity this frame, and then held constant until the
+	 * next frame begins.
+	 */
+	public static void beginFrame() {
+		frameDirty = true;
+	}
+
+	/**
+	 * @return false only for item entities the cap is currently hiding.
 	 */
 	public static boolean allowRender(Entity entity) {
 		if (!(entity instanceof ItemEntity)) {
@@ -70,29 +70,25 @@ public final class RenderCap {
 			return true;
 		}
 
-		refresh(minecraft, level, config);
-		return VISIBLE.contains(entity.getId());
-	}
-
-	private static void refresh(Minecraft minecraft, ClientLevel level, ItemRenderCapConfig config) {
-		long now = System.nanoTime();
-
-		if (built && level == lastLevel && now - lastRebuildNs < REBUILD_INTERVAL_NS) {
-			return;
+		if (!announced) {
+			announced = true;
+			ItemRenderCapClient.LOGGER.info(
+					"Active - mixin applied, first cull decision made (maxRenderedPerGroup={}, groupRadius={})",
+					config.maxRenderedPerGroup, config.groupRadius);
 		}
 
-		lastLevel = level;
-		lastRebuildNs = now;
-		built = true;
-		rebuild(minecraft, level, config);
+		if (frameDirty || level != lastLevel) {
+			frameDirty = false;
+			lastLevel = level;
+			rebuild(minecraft, level, config);
+		}
+
+		return SELECTOR.isVisible(entity.getId());
 	}
 
 	private static void rebuild(Minecraft minecraft, ClientLevel level, ItemRenderCapConfig config) {
-		VISIBLE.clear();
-		BUCKETS.clear();
-
-		final int max = config.maxRenderedPerGroup;
-		final double cell = config.groupRadius;
+		frameCounter++;
+		SELECTOR.begin(config.maxRenderedPerGroup, config.groupRadius);
 
 		Entity camera = minecraft.getCameraEntity();
 		Vec3 eye = null;
@@ -103,7 +99,7 @@ public final class RenderCap {
 			reach = eye.add(camera.getViewVector(1.0F).scale(LOOK_RANGE));
 		}
 
-		int lookedAt = -1;
+		int lookedAt = ItemGroupSelector.NO_ID;
 		double lookedAtDistanceSq = Double.MAX_VALUE;
 
 		for (Entity entity : level.entitiesForRendering()) {
@@ -125,68 +121,52 @@ public final class RenderCap {
 				}
 			}
 
-			if (max > 0) {
-				long key = cellKey(item.position(), cell);
-				IntArrayList kept = BUCKETS.get(key);
-
-				if (kept == null) {
-					kept = new IntArrayList(max + 1);
-					BUCKETS.put(key, kept);
-				}
-
-				keepLowest(kept, item.getId(), max);
-			}
-		}
-
-		for (IntArrayList kept : BUCKETS.values()) {
-			VISIBLE.addAll(kept);
-		}
-
-		BUCKETS.clear();
-
-		// The crosshair target always renders, even if its group is already full.
-		if (lookedAt != -1) {
-			VISIBLE.add(lookedAt);
+			Vec3 pos = item.position();
+			SELECTOR.offer(item.getId(), pos.x, pos.y, pos.z);
 		}
 
 		// Vanilla never picks item entities (they are not pickable), but another mod may have
 		// made them so - honour that too rather than second-guessing it.
-		if (minecraft.hitResult instanceof EntityHitResult entityHit
+		if (lookedAt == ItemGroupSelector.NO_ID
+				&& minecraft.hitResult instanceof EntityHitResult entityHit
 				&& entityHit.getEntity() instanceof ItemEntity picked) {
-			VISIBLE.add(picked.getId());
+			lookedAt = picked.getId();
+		}
+
+		SELECTOR.finish(lookedAt);
+
+		if (config.debug) {
+			logDiagnostics(config, lookedAt);
 		}
 	}
 
-	/** Inserts {@code id} into the ascending list, keeping at most {@code max} entries. */
-	private static void keepLowest(IntArrayList kept, int id, int max) {
-		int size = kept.size();
+	private static void logDiagnostics(ItemRenderCapConfig config, int lookedAt) {
+		int interval = Math.max(1, config.debugLogIntervalFrames);
+		boolean unstable = SELECTOR.deselectedCount() > 0 || SELECTOR.emptyGroupCount() > 0;
 
-		if (size >= max && id >= kept.getInt(size - 1)) {
+		// Always log the moment something looks unstable, otherwise only every Nth frame.
+		if (!unstable && frameCounter % interval != 0L) {
 			return;
 		}
 
-		int index = 0;
+		ItemRenderCapClient.LOGGER.info(
+				"frame={} items={} groups={} visible={} hidden={} largestGroup={} appeared={} deselected={} emptyGroups={} crosshair={}",
+				frameCounter,
+				SELECTOR.offeredCount(),
+				SELECTOR.groupCount(),
+				SELECTOR.visibleCount(),
+				SELECTOR.hiddenCount(),
+				SELECTOR.largestGroupSize(),
+				SELECTOR.appearedCount(),
+				SELECTOR.deselectedCount(),
+				SELECTOR.emptyGroupCount(),
+				lookedAt == ItemGroupSelector.NO_ID ? "none" : lookedAt);
 
-		while (index < size && kept.getInt(index) < id) {
-			index++;
+		if (unstable) {
+			ItemRenderCapClient.LOGGER.warn(
+					"Unstable selection this frame: {} item(s) still present but dropped from the render set, {} empty group(s). "
+							+ "In a static scene both should be 0 - please report this with the surrounding log lines.",
+					SELECTOR.deselectedCount(), SELECTOR.emptyGroupCount());
 		}
-
-		kept.add(index, id);
-
-		if (kept.size() > max) {
-			kept.removeInt(kept.size() - 1);
-		}
-	}
-
-	/**
-	 * Mixes the three grid coordinates into one long. A hash rather than a bit-packing because
-	 * cell coordinates at small radii overflow the 64 bits a packed layout would need.
-	 */
-	private static long cellKey(Vec3 pos, double cell) {
-		long x = (long) Math.floor(pos.x / cell);
-		long y = (long) Math.floor(pos.y / cell);
-		long z = (long) Math.floor(pos.z / cell);
-
-		return x * 0x9E3779B97F4A7C15L ^ y * 0xC2B2AE3D27D4EB4FL ^ z * 0x165667B19E3779F9L;
 	}
 }

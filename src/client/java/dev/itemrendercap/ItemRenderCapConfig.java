@@ -38,6 +38,18 @@ public final class ItemRenderCapConfig {
 	 */
 	public double groupRadius = 4.0D;
 
+	/**
+	 * Logs group formation and selection stats to the game log. Leave off for normal play; turn
+	 * on to diagnose items that fail to render or flicker.
+	 */
+	public boolean debug = false;
+
+	/**
+	 * How often to emit a debug line, in frames. Frames where the selection looks unstable are
+	 * always logged regardless of this interval.
+	 */
+	public int debugLogIntervalFrames = 60;
+
 	public static ItemRenderCapConfig get() {
 		return instance;
 	}
@@ -79,5 +91,6 @@ public final class ItemRenderCapConfig {
 		// A zero or negative radius would divide by zero when bucketing; the upper bound keeps
 		// the grid coarse enough to stay meaningful.
 		groupRadius = Math.clamp(groupRadius, 0.5D, 128.0D);
+		debugLogIntervalFrames = Math.max(1, debugLogIntervalFrames);
 	}
 }

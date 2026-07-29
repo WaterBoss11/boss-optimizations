@@ -11,7 +11,8 @@ base {
 
 repositories {
 	// Loom adds the Minecraft/Fabric repositories automatically.
-	// This mod has no third-party dependencies.
+	// This mod has no third-party runtime dependencies; mavenCentral is here for JUnit only.
+	mavenCentral()
 }
 
 loom {
@@ -32,6 +33,19 @@ dependencies {
 
 	// Deliberately no Fabric API dependency: this mod only needs the loader
 	// entrypoint and vanilla classes, so keeping it out reduces the footprint.
+
+	testImplementation platform("org.junit:junit-bom:5.11.4")
+	testImplementation "org.junit.jupiter:junit-jupiter"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+test {
+	useJUnitPlatform()
+
+	testLogging {
+		events "passed", "failed", "skipped"
+		showStandardStreams = true
+	}
 }
 
 processResources {
