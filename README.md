@@ -9,6 +9,7 @@ despawn behaviour is touched.
 | Module | Status | What it does |
 | --- | --- | --- |
 | [Item Render Cap](#item-render-cap) | shipped | Caps how many dropped item entities are drawn on screen |
+| [Book Safety](#book-safety) | shipped | Refuses to parse abnormally large or deeply nested book content |
 
 ## Install
 
@@ -31,6 +32,15 @@ startup only — there is deliberately no command and no config UI.
     "groupRadius": 4.0,
     "debug": false,
     "debugLogIntervalFrames": 60
+  },
+  "bookSafety": {
+    "enabled": true,
+    "maxPages": 512,
+    "maxPageCharacters": 32767,
+    "maxTotalCharacters": 500000,
+    "maxNestingDepth": 64,
+    "maxNodes": 50000,
+    "logRejections": true
   }
 }
 ```
@@ -114,6 +124,69 @@ actually applied.
   anyway, so this mainly affects old items pushed by water or pistons. Raising `groupRadius`
   reduces how often boundaries are crossed.
 - Untested against Sodium/Iris.
+
+---
+
+## Book Safety
+
+Refuses to parse written-book content whose shape suggests it exists to hurt the client rather
+than be read — huge page counts, oversized pages, or deeply nested text. Rejected books open to
+a single explanatory page; the hostile content is never turned into anything renderable.
+
+### What 26.2 already does, and what this adds
+
+Most of the historical book-crash surface is closed in vanilla 26.2, verified against the
+26.2 bytecode:
+
+| Guard | Value | Where |
+| --- | --- | --- |
+| Page content size | 32,767 chars | `ComponentSerialization.flatRestrictedCodec(32767)` |
+| Oversized page on resolve | 32,767 | `WrittenBookContent.isPageTooLarge` |
+| Title | 32 chars | `ByteBufCodecs.stringUtf8(32)`, `TITLE_MAX_LENGTH` |
+| NBT nesting depth | 512 | `NbtAccounter.MAX_STACK_DEPTH` |
+| NBT total size | 2 MB | `NbtAccounter.DEFAULT_NBT_QUOTA` |
+| Unsigned book pages | 100 | `WritableBookContent.MAX_PAGES` |
+
+Two facts worth recording so they aren't re-investigated later:
+
+- **Book content is already lazy in vanilla.** A scan of every class in the 26.2 client jar
+  found only `BookViewScreen$BookAccess.fromItem` and `BookSignScreen` referencing
+  `WrittenBookContent` at all. `WrittenBookContent.addToTooltip` reads the author and generation
+  and nothing else — it never touches `pages`. Content is not parsed by tooltips, by sitting in
+  inventory, or by being looked at. This module gates the one parse site, so it enforces that
+  invariant rather than creating it.
+- **The one real gap is page count.** `WrittenBookContent.STREAM_CODEC` builds its page list
+  with the no-argument `ByteBufCodecs.list()` rather than the `list(int)` overload that exists
+  alongside it, so a *signed* book off the network has no explicit page-count cap. Unsigned
+  books do (100).
+
+The remaining checks duplicate limits vanilla already enforces. That is deliberate defence in
+depth, covering NBT-edited content, other mods building components directly, and future
+regressions.
+
+### The hook
+
+One mixin on `BookViewScreen$BookAccess.fromItem`, the single place the client turns a book item
+into readable pages. The scan bails out incrementally — it stops at the first limit exceeded
+rather than measuring a hostile book in full, since measuring it fully would perform exactly the
+work being defended against. `BookScanner.enterNode()` refuses *before* the walker recurses, so
+recursion depth can never exceed `maxNestingDepth`, which is what stops a nesting bomb from
+overflowing the stack inside the check meant to catch it.
+
+### Settings
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `true` | Default on: purely defensive, costs a real book nothing |
+| `maxPages` | `512` | Page limit. The one with no vanilla equivalent for signed books |
+| `maxPageCharacters` | `32767` | Per page. Matches vanilla's own codec limit |
+| `maxTotalCharacters` | `500000` | Whole book. A legitimate 100-page book is around 100k |
+| `maxNestingDepth` | `64` | Text tree depth. Clamped to `2`–`512` |
+| `maxNodes` | `50000` | Total text nodes, bounding wide-but-shallow trees |
+| `logRejections` | `true` | Log a warning naming the limit that tripped |
+
+Defaults sit several times above what vanilla itself permits a player to write (100 pages ×
+1024 characters), so real books — including generously formatted datapack ones — pass untouched.
 
 ---
 

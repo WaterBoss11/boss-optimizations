@@ -3,6 +3,7 @@
 	"package": "dev.bossoptimizations.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
+		"BookAccessMixin",
 		"EntityRenderDispatcherMixin",
 		"LevelExtractorMixin"
 	],

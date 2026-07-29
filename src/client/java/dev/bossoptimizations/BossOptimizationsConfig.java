@@ -3,6 +3,7 @@ package dev.bossoptimizations;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
+import dev.bossoptimizations.booksafety.BookSafetyConfig;
 import dev.bossoptimizations.itemrendercap.ItemRenderCapConfig;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -28,6 +29,7 @@ public final class BossOptimizationsConfig {
 	private static BossOptimizationsConfig instance = new BossOptimizationsConfig();
 
 	public ItemRenderCapConfig itemRenderCap = new ItemRenderCapConfig();
+	public BookSafetyConfig bookSafety = new BookSafetyConfig();
 
 	public static BossOptimizationsConfig get() {
 		return instance;
@@ -74,6 +76,11 @@ public final class BossOptimizationsConfig {
 			itemRenderCap = new ItemRenderCapConfig();
 		}
 
+		if (bookSafety == null) {
+			bookSafety = new BookSafetyConfig();
+		}
+
 		itemRenderCap.clamp();
+		bookSafety.clamp();
 	}
 }
