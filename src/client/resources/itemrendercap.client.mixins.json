@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "dev.itemrendercap.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"EntityRenderDispatcherMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

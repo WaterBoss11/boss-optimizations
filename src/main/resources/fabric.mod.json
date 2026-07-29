@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "itemrendercap",
+	"version": "${version}",
+	"name": "Item Render Cap",
+	"description": "Caps how many dropped item entities are drawn on screen at once. Item entities are grouped into a spatial grid and only the first N in each group are rendered; the rest are skipped by the renderer only. Purely visual - entity data, ticking, pickup and despawn behaviour are untouched. The item under your crosshair always renders.",
+	"authors": [
+		"item-render-cap"
+	],
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"dev.itemrendercap.ItemRenderCapClient"
+		]
+	},
+	"mixins": [
+		{
+			"config": "itemrendercap.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.3",
+		"minecraft": "~26.2",
+		"java": ">=25"
+	}
+}
