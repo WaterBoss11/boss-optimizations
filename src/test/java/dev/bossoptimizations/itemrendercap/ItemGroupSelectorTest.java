@@ -1,4 +1,4 @@
-package dev.itemrendercap;
+package dev.bossoptimizations.itemrendercap;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;

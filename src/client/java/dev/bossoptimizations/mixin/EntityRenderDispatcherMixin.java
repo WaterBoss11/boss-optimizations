@@ -1,6 +1,6 @@
-package dev.itemrendercap.mixin;
+package dev.bossoptimizations.mixin;
 
-import dev.itemrendercap.RenderCap;
+import dev.bossoptimizations.itemrendercap.RenderCap;
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.world.entity.Entity;

@@ -1,22 +1,27 @@
 {
 	"schemaVersion": 1,
-	"id": "itemrendercap",
+	"id": "bossoptimizations",
 	"version": "${version}",
-	"name": "Item Render Cap",
-	"description": "Caps how many dropped item entities are drawn on screen at once. Item entities are grouped into a spatial grid and only the first N in each group are rendered; the rest are skipped by the renderer only. Purely visual - entity data, ticking, pickup and despawn behaviour are untouched. The item under your crosshair always renders.",
+	"name": "Boss Optimizations",
+	"description": "A client-side performance and defensive mod. Modules are independently toggleable and do nothing when disabled. Currently includes Item Render Cap, which limits how many dropped item entities are drawn on screen at once - purely visual, with entity data, ticking, pickup and despawn behaviour left untouched.",
 	"authors": [
-		"item-render-cap"
+		"WaterBoss11"
 	],
+	"contact": {
+		"homepage": "https://github.com/WaterBoss11/boss-optimizations",
+		"sources": "https://github.com/WaterBoss11/boss-optimizations",
+		"issues": "https://github.com/WaterBoss11/boss-optimizations/issues"
+	},
 	"license": "MIT",
 	"environment": "client",
 	"entrypoints": {
 		"client": [
-			"dev.itemrendercap.ItemRenderCapClient"
+			"dev.bossoptimizations.BossOptimizationsClient"
 		]
 	},
 	"mixins": [
 		{
-			"config": "itemrendercap.client.mixins.json",
+			"config": "bossoptimizations.client.mixins.json",
 			"environment": "client"
 		}
 	],

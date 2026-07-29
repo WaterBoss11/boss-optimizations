@@ -1,6 +1,6 @@
 {
 	"required": true,
-	"package": "dev.itemrendercap.mixin",
+	"package": "dev.bossoptimizations.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
 		"EntityRenderDispatcherMixin",

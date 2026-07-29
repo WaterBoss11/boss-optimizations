@@ -9,4 +9,4 @@ pluginManagement {
 	}
 }
 
-rootProject.name = 'item-render-cap'
+rootProject.name = 'boss-optimizations'

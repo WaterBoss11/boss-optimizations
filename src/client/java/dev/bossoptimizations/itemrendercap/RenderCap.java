@@ -1,5 +1,7 @@
-package dev.itemrendercap;
+package dev.bossoptimizations.itemrendercap;
 
+import dev.bossoptimizations.BossOptimizationsClient;
+import dev.bossoptimizations.BossOptimizationsConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.world.entity.Entity;
@@ -57,7 +59,7 @@ public final class RenderCap {
 			return true;
 		}
 
-		ItemRenderCapConfig config = ItemRenderCapConfig.get();
+		ItemRenderCapConfig config = BossOptimizationsConfig.get().itemRenderCap;
 
 		if (!config.enabled) {
 			return true;
@@ -72,7 +74,7 @@ public final class RenderCap {
 
 		if (!announced) {
 			announced = true;
-			ItemRenderCapClient.LOGGER.info(
+			BossOptimizationsClient.LOGGER.info(
 					"Active - mixin applied, first cull decision made (maxRenderedPerGroup={}, groupRadius={})",
 					config.maxRenderedPerGroup, config.groupRadius);
 		}
@@ -149,7 +151,7 @@ public final class RenderCap {
 			return;
 		}
 
-		ItemRenderCapClient.LOGGER.info(
+		BossOptimizationsClient.LOGGER.info(
 				"frame={} items={} groups={} visible={} hidden={} largestGroup={} appeared={} deselected={} emptyGroups={} crosshair={}",
 				frameCounter,
 				SELECTOR.offeredCount(),
@@ -163,7 +165,7 @@ public final class RenderCap {
 				lookedAt == ItemGroupSelector.NO_ID ? "none" : lookedAt);
 
 		if (unstable) {
-			ItemRenderCapClient.LOGGER.warn(
+			BossOptimizationsClient.LOGGER.warn(
 					"Unstable selection this frame: {} item(s) still present but dropped from the render set, {} empty group(s). "
 							+ "In a static scene both should be 0 - please report this with the surrounding log lines.",
 					SELECTOR.deselectedCount(), SELECTOR.emptyGroupCount());

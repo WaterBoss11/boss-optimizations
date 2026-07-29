@@ -1,6 +1,6 @@
-package dev.itemrendercap.mixin;
+package dev.bossoptimizations.mixin;
 
-import dev.itemrendercap.RenderCap;
+import dev.bossoptimizations.itemrendercap.RenderCap;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.extract.LevelExtractor;

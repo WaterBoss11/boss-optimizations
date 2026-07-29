@@ -19,7 +19,7 @@ loom {
 	splitEnvironmentSourceSets()
 
 	mods {
-		"itemrendercap" {
+		"bossoptimizations" {
 			sourceSet sourceSets.main
 			sourceSet sourceSets.client
 		}
